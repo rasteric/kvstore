@@ -1,4 +1,4 @@
-# kvstore
+![KVStore](logo.png) # kvstore
 
 [![GoDoc](https://godoc.org/github.com/rasteric/kvstore/go?status.svg)](https://godoc.org/github.com/rasteric/kvstore)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rasteric/kvstore)](https://goreportcard.com/report/github.com/rasteric/kvstore)

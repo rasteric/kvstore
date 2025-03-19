@@ -5,7 +5,8 @@ import (
 	"encoding/gob"
 )
 
-// MarshalBinary uses CBOR to marshal any CBOR-serializable value to a byte slice.
+// MarshalBinary uses gob encoding to marshal a value to a byte slice. To encode
+// structs, use gob.Register(yourstruct{}) to register them.
 func MarshalBinary(v any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -16,7 +17,7 @@ func MarshalBinary(v any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// UnmarshalBinary assumes that a CBOR byte slice is given and nmarshals it into a variable
+// UnmarshalBinary assumes that a gob encoded byte slice is given and nmarshals it into a variable
 // of the empty interface type, returns an error if the data is malformed.
 func UnmarshalBinary(b []byte) (any, error) {
 	dec := gob.NewDecoder(bytes.NewReader(b))
