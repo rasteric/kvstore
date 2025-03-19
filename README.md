@@ -84,6 +84,10 @@ type KeyValueStore interface {
 }
 ```
 
+## Endoding
+
+This library uses Go's gob encoding to encode values in the database. This means that you have to use `gob.Register(mystruct{})` if you want to store values of custom struct `mystruct` in the key value database. It also means that all limitations of gob encoding apply to the values stored.
+
 ## License
 
 This library is MIT licensed and free for commercial and personal use as long as the license conditions are satisfied. See the accompanying LICENSE file for more information.
