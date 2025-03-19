@@ -50,8 +50,9 @@ func main() {
 	}
 	fmt.Println(s)
 
-	err = db.SetDefault("example", "have a nice day!", kvstore.KeyInfo{Description: "an example key",
-		Category: "testing"})
+	err = db.SetDefault("example", "have a nice day!",
+        kvstore.KeyInfo{Description: "an example key",
+	    Category: "testing"})
 	if err != nil {
 		panic(err)
 	}
@@ -72,15 +73,15 @@ All API calls are in the following interface:
 ```
 // KeyValueStore is the interface for a key value database.
 type KeyValueStore interface {
-	Open(path, name string) error     // open the database in directory path/name/
+	Open(path, name string) error     // open the database in path/name/
 	Close() error                     // close the database
-	Set(key string, value any) error  // set the key to the given value, which must be serializable with cbor
-	SetDefault(key string, value any, // set a default for the key with given info and category strings
-		info KeyInfo) error // for additional information (e.g. useful for preferences)
-	Get(key string) (any, error)     // get the value for key, NotFoundErr if there is no key
-	Revert(key string) error         // revert key to its default
-	Info(key string) (KeyInfo, bool) // returns key information for a key if it is present
-	Delete(key string)               // Remove the key and value for the key.
+	Set(key string, value any) error  // set a key to a value
+	SetDefault(key string, value any, // set a default and info for a key 
+		info KeyInfo) error           
+	Get(key string) (any, error)     // get the value for a key
+	Revert(key string) error         // revert a value to its default
+	Info(key string) (KeyInfo, bool) // return key information for a key if present
+	Delete(key string)               // remove a key value pair
 }
 ```
 
