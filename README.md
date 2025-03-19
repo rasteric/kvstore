@@ -63,6 +63,8 @@ func main() {
 }
 ```
 
+Notice that `kvstore.NotFoundErr` is returned when a `get` operation fails. Since all kinds of errors can occur with file-based databases, this API was chosen instead of the more common `value, ok:=db.Get(key)` from maps and other key value stores. Check for the error using `errors.Is(err)==kvstore.NotFoundErr` to distinguish it from other errors. Notice that you use `SetDefault` to set a default, in case of which the default is returned if no value was set.
+
 ## Documentation
 
 All API calls are in the following interface:
