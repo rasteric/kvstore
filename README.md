@@ -13,7 +13,7 @@ Development takes place at the main branch so you need to make sure to always ge
 
 ## Quick Start 
 
-```
+```go
 package main
 
 import (
