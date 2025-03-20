@@ -88,7 +88,7 @@ Notice that `kvstore.NotFoundErr` is returned when a `get` operation fails. Sinc
 
 All API calls are in the following interface:
 
-```
+```go
 type KeyValueStore interface {
 	Open(path string) error          // open the database at directory path
 	Close() error                    // close the database
