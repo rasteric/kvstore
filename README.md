@@ -9,7 +9,9 @@ __KVStore is an Sqlite3-backed embedded local key value store for Go, focusing o
 
 `go get https://github.com/rasteric/kvstore`
 
-## Usage 
+Development takes place at the main branch so you need to make sure to always get a release, not the current state of `main`.
+
+## Quick Start 
 
 ```
 package main
@@ -99,6 +101,8 @@ type KeyValueStore interface {
 		info KeyInfo) error
 }
 ```
+
+The `path` argument to `Open` needs to be a directory whose name is the name you wish the database to have. This is so because the a key-value store may write more than one file, for example the write-ahead log in addition to the database. The actual sqlite database s called `kvstore.sqlite` in the default implementation.
 
 ## Endoding
 
