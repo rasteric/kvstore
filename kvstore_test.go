@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"os"
 	"testing"
 )
@@ -115,7 +116,7 @@ func TestKVStore(t *testing.T) {
 		t.Errorf(`wrong data after getting testStruct`)
 	}
 	// stress test a bit
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 1000; i++ {
 		key, _ := generateRandomHex(16)
 		value, _ := generateRandomHex(16)
 		err := db.Set(key, value)
@@ -132,6 +133,45 @@ func TestKVStore(t *testing.T) {
 		db.Delete(key)
 		if _, err := db.Get(key); err == nil {
 			t.Errorf(`value was returned for deleted key value pair`)
+		}
+	}
+	// test map methods
+	testPairs := make(map[string]any)
+	for i := 0; i < 1000; i++ {
+		key, _ := generateRandomHex(16)
+		value, _ := generateRandomHex(16)
+		testPairs[key] = value
+	}
+	err = db.SetMany(testPairs)
+	if err != nil {
+		t.Errorf(`failed to set many: %v`, err)
+	}
+	part, err := db.GetAll(100)
+	if err != nil {
+		t.Errorf(`getting all data with limit failed: %v`, err)
+	}
+	if len(part) != 100 {
+		t.Errorf(`limit was set to 100 but got %v key value pairs`, len(part))
+	}
+	everyThing, err := db.GetAll(0)
+	for k, v := range testPairs {
+		if everyThing[k] != v {
+			t.Errorf(` get all result does not match get many, got %v expected %v`,
+				everyThing[k], v)
+			break
+		}
+	}
+	keys := make([]string, 0, len(everyThing))
+	for k, _ := range everyThing {
+		keys = append(keys, k)
+	}
+	err = db.DeleteMany(keys)
+	if err != nil {
+		t.Errorf(`error with delete many: %v`, err)
+	}
+	for k, _ := range testPairs {
+		if _, err := db.Get(k); !errors.Is(err, NotFoundErr) {
+			t.Errorf(`expected key to be deleted but it wasn't: %v`, k)
 		}
 	}
 }

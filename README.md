@@ -82,7 +82,7 @@ func main() {
 }
 ```
 
-Notice that `kvstore.NotFoundErr` is returned when a `get` operation fails. Since all kinds of errors can occur with file-based databases, this API was chosen instead of the more common `value, ok:=db.Get(key)` from maps and other key value stores. Check for the error with `errors.Is(err,kvstore.NotFoundErr)` to distinguish it from other errors. Use `SetDefault` to set a default, in case of which the default is returned if no value was set.
+See the tests for more examples. Notice that `kvstore.NotFoundErr` is returned when a `get` operation fails. Since all kinds of errors can occur with file-based databases, this API was chosen instead of the more common `value, ok:=db.Get(key)` from maps and other key value stores. Check for the error with `errors.Is(err,kvstore.NotFoundErr)` to distinguish it from other errors. Use `SetDefault` to set a default, in case of which the default is returned if no value was set.
 
 ## Documentation
 
@@ -90,14 +90,17 @@ All API calls are in the following interface:
 
 ```go
 type KeyValueStore interface {
-	Open(path string) error          // open the database at directory path
-	Close() error                    // close the database
-	Set(key string, value any) error // set the key to the given value, which must be gob serializable
-	Get(key string) (any, error)     // get the value for key, NotFoundErr if there is no key
-	Revert(key string) error         // revert key to its default
-	Info(key string) (KeyInfo, bool) // returns key information for a key if it is present
-	Delete(key string)               // remove the key and value for the key
-	SetDefault(key string,           // set a default and info for a key
+	Open(path string) error                   // open the database at directory path
+	Close() error                             // close the database
+	Set(key string, value any) error          // set the key to the given value, which must be gob serializable
+	Get(key string) (any, error)              // get the value for key, NotFoundErr if there is no key
+	SetMany(map[string]any) error             // set all key-value pairs in the map in one transaction
+	GetAll(limit int) (map[string]any, error) // get all key-value pairs as a map
+	Revert(key string) error                  // revert key to its default
+	Info(key string) (KeyInfo, bool)          // returns key information for a key if it is present
+	Delete(key string) error                  // remove the key and value for the key
+	DeleteMany(keys []string) error           // remove all the given keys in one transaction
+	SetDefault(key string,                    // set a default and info for a key
 		value any,
 		info KeyInfo) error
 }

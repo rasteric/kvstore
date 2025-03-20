@@ -19,14 +19,17 @@ var NoDefaultErr = errors.New(`no default value set for given key`)
 
 // KeyValueStore is the interface for a key value database.
 type KeyValueStore interface {
-	Open(path string) error          // open the database at directory path
-	Close() error                    // close the database
-	Set(key string, value any) error // set the key to the given value, which must be gob serializable
-	Get(key string) (any, error)     // get the value for key, NotFoundErr if there is no key
-	Revert(key string) error         // revert key to its default
-	Info(key string) (KeyInfo, bool) // returns key information for a key if it is present
-	Delete(key string)               // remove the key and value for the key
-	SetDefault(key string,           // set a default and info for a key
+	Open(path string) error                   // open the database at directory path
+	Close() error                             // close the database
+	Set(key string, value any) error          // set the key to the given value, which must be gob serializable
+	Get(key string) (any, error)              // get the value for key, NotFoundErr if there is no key
+	SetMany(map[string]any) error             // set all key-value pairs in the map in one transaction
+	GetAll(limit int) (map[string]any, error) // get all key-value pairs as a map
+	Revert(key string) error                  // revert key to its default
+	Info(key string) (KeyInfo, bool)          // returns key information for a key if it is present
+	Delete(key string) error                  // remove the key and value for the key
+	DeleteMany(keys []string) error           // remove all the given keys in one transaction
+	SetDefault(key string,                    // set a default and info for a key
 		value any,
 		info KeyInfo) error
 }
@@ -49,6 +52,8 @@ type KVStore struct {
 func New() *KVStore {
 	return &KVStore{}
 }
+
+var _ KeyValueStore = (*KVStore)(nil)
 
 // Open a database at the path specified when the database was created,
 // which holds all database files. If directories to path/name do not exist, they are created
@@ -155,6 +160,25 @@ func (db *KVStore) Set(key string, value any) error {
 	return err
 }
 
+// SetMany sets all pairs in the given map in one transaction.
+func (db *KVStore) SetMany(pairs map[string]any) error {
+	if atomic.LoadUint32(&db.state) < 256 {
+		return NotOpenErr
+	}
+	tx, err := db.sqx.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for k, v := range pairs {
+		_, err = tx.Exec(`INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=?;`, k, v, v)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // Get gets the value for the given key, the default if no value for the key is stored but a default is
 // present, and NotFoundErr if neither of them is present.
 func (db *KVStore) Get(key string) (any, error) {
@@ -167,6 +191,43 @@ func (db *KVStore) Get(key string) (any, error) {
 		return db.getDefault(key)
 	}
 	return UnmarshalBinary(b)
+}
+
+// GetAll returns all key-value pairs as a map. If limit is 0 or negative, all key value pairs are returned.
+// Although this is usually not advisable, this method may be used in combination with SetMany to save and
+// load maps, i.e., use the key value store merely for persistence and keep the data in memory.
+func (db *KVStore) GetAll(limit int) (map[string]any, error) {
+	if atomic.LoadUint32(&db.state) < 256 {
+		return nil, NotOpenErr
+	}
+	var rows *sqlx.Rows
+	var err error
+	if limit <= 0 {
+		rows, err = db.sqx.Queryx(`SELECT key,value,original FROM kv ORDER BY key ASC;`)
+	} else {
+		rows, err = db.sqx.Queryx(`SELECT key,value,original FROM kv ORDER BY key ASC LIMIT ?;`, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		return nil, NotFoundErr
+	}
+	result := make(map[string]any)
+	for rows.Next() {
+		var key string
+		var value, original any
+		err := rows.Scan(&key, &value, &original)
+		if err != nil {
+			return result, err
+		}
+		if value != nil {
+			result[key] = value
+		} else if original != nil {
+			result[key] = original
+		}
+	}
+	return result, nil
 }
 
 // getDefault obtains the default for the given key, ErrNotFound if there is none.
@@ -219,4 +280,23 @@ func (db *KVStore) Delete(key string) error {
 	}
 	_, err := db.sqx.Exec(`DELETE FROM kv WHERE key=?;`, key)
 	return err
+}
+
+// DeleteMany removes all given keys in one transaction.
+func (db *KVStore) DeleteMany(keys []string) error {
+	if atomic.LoadUint32(&db.state) < 256 {
+		return NotOpenErr
+	}
+	tx, err := db.sqx.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, k := range keys {
+		_, err = tx.Exec(`DELETE FROM kv WHERE key=?;`, k)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
