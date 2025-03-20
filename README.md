@@ -65,7 +65,8 @@ func main() {
 	fmt.Println(s)
 
 	// setting a default and key info
-	err = db.SetDefault("example", "have a nice day!", kvstore.KeyInfo{Description: "an example key",
+	err = db.SetDefault("example", "have a nice day!",
+        kvstore.KeyInfo{Description: "an example key",
 		Category: "testing"})
 	if err != nil {
 		panic(err)
