@@ -15,6 +15,7 @@ __KVStore is an Sqlite3-backed embedded local key value store for Go, focusing o
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -24,41 +25,55 @@ import (
 
 func main() {
 	db := kvstore.New()
-	dname, err := os.MkdirTemp("", "sampledir")
+	path, err := os.MkdirTemp("", "kvstore-test")
 	if err != nil {
 		panic(err)
 	}
-	err = db.Open(dname, "testdb")
+	err = db.Open(path)
 	if err != nil {
 		panic(err)
 	}
+	// make sure the test dir is cleaned up afterwards
 	defer func() {
 		err := db.Close()
 		if err != nil {
 			log.Println(err)
 		}
-		os.RemoveAll(dname)
+		os.RemoveAll(path)
 	}()
 
+	// checking a key value pair doesn't exist
+	if _, err := db.Get("hello"); errors.Is(err, kvstore.NotFoundErr) {
+		fmt.Println(`there is no key "hello"`)
+	} else {
+		fmt.Println(err)
+	}
+
+	// setting a key value pair
 	err = db.Set("example", "hello world!")
 	if err != nil {
 		panic(err)
 	}
+
+	// getting the value for a key
 	s, err := db.Get("example")
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(s)
 
-	err = db.SetDefault("example", "have a nice day!",
-        kvstore.KeyInfo{Description: "an example key",
-	    Category: "testing"})
+	// setting a default and key info
+	err = db.SetDefault("example", "have a nice day!", kvstore.KeyInfo{Description: "an example key",
+		Category: "testing"})
 	if err != nil {
 		panic(err)
 	}
+
+	// reverting a key value to its default
 	if err := db.Revert("example"); err != nil {
 		panic(err)
 	}
+
 	s, _ = db.Get("example")
 	fmt.Println(s)
 }
@@ -71,17 +86,17 @@ Notice that `kvstore.NotFoundErr` is returned when a `get` operation fails. Sinc
 All API calls are in the following interface:
 
 ```
-// KeyValueStore is the interface for a key value database.
 type KeyValueStore interface {
-	Open(path, name string) error     // open the database in path/name/
-	Close() error                     // close the database
-	Set(key string, value any) error  // set a key to a value
-	SetDefault(key string, value any, // set a default and info for a key 
-		info KeyInfo) error           
-	Get(key string) (any, error)     // get the value for a key
-	Revert(key string) error         // revert a value to its default
-	Info(key string) (KeyInfo, bool) // return key information for a key if present
-	Delete(key string)               // remove a key value pair
+	Open(path string) error          // open the database at directory path
+	Close() error                    // close the database
+	Set(key string, value any) error // set the key to the given value, which must be gob serializable
+	Get(key string) (any, error)     // get the value for key, NotFoundErr if there is no key
+	Revert(key string) error         // revert key to its default
+	Info(key string) (KeyInfo, bool) // returns key information for a key if it is present
+	Delete(key string)               // remove the key and value for the key
+	SetDefault(key string,           // set a default and info for a key
+		value any,
+		info KeyInfo) error
 }
 ```
 

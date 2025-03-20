@@ -19,15 +19,16 @@ var NoDefaultErr = errors.New(`no default value set for given key`)
 
 // KeyValueStore is the interface for a key value database.
 type KeyValueStore interface {
-	Open(path, name string) error     // open the database in directory path/name/
-	Close() error                     // close the database
-	Set(key string, value any) error  // set the key to the given value, which must be serializable with cbor
-	SetDefault(key string, value any, // set a default for the key with given info and category strings
-		info KeyInfo) error // for additional information (e.g. useful for preferences)
+	Open(path string) error          // open the database at directory path
+	Close() error                    // close the database
+	Set(key string, value any) error // set the key to the given value, which must be gob serializable
 	Get(key string) (any, error)     // get the value for key, NotFoundErr if there is no key
 	Revert(key string) error         // revert key to its default
 	Info(key string) (KeyInfo, bool) // returns key information for a key if it is present
-	Delete(key string)               // Remove the key and value for the key.
+	Delete(key string)               // remove the key and value for the key
+	SetDefault(key string,           // set a default and info for a key
+		value any,
+		info KeyInfo) error
 }
 
 // KeyInfo is provides information about a key. This is useful for preference systems.
@@ -49,31 +50,31 @@ func New() *KVStore {
 	return &KVStore{}
 }
 
-// Open a database with the given name at path. This creates a subdirectory path/name
+// Open a database at the path specified when the database was created,
 // which holds all database files. If directories to path/name do not exist, they are created
 // recursively with Unix permissions 0755.
-func (db *KVStore) Open(path, name string) error {
+func (db *KVStore) Open(path string) error {
 	if atomic.LoadUint32(&db.state) > 255 {
 		return AlreadyOpenErr
 	}
+	db.path = path
 	var err error
-	if path == "" {
-		path, err = os.Getwd()
+	if db.path == "" {
+		db.path, err = os.Getwd()
 		if err != nil {
 			return err
 		}
 	}
-	folder := filepath.Join(path, name)
-	_, err = os.Stat(folder)
+	_, err = os.Stat(db.path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := os.MkdirAll(folder, 0755)
+			err := os.MkdirAll(db.path, 0755)
 			if err != nil {
 				return err
 			}
 		}
 	}
-	file := filepath.Join(folder, "kvstore.sqlite")
+	file := filepath.Join(db.path, "kvstore.sqlite")
 	db.path = file
 	db.sq, err = sql.Open("sqlite3", file)
 	if err != nil {
@@ -161,9 +162,9 @@ func (db *KVStore) Get(key string) (any, error) {
 		return nil, NotOpenErr
 	}
 	var b []byte
-	db.sqx.Get(&b, `SELECT value FROM kv WHERE key=? LIMIT 1;`, key)
-	if b == nil {
-		db.getDefault(key)
+	err := db.sqx.Get(&b, `SELECT value FROM kv WHERE key=? LIMIT 1;`, key)
+	if err != nil || b == nil {
+		return db.getDefault(key)
 	}
 	return UnmarshalBinary(b)
 }
@@ -174,8 +175,8 @@ func (db *KVStore) getDefault(key string) (any, error) {
 		return nil, NotOpenErr
 	}
 	var b []byte
-	db.sqx.Get(&b, `SELECT original FROM kv WHERE key=? LIMIT 1;`, key)
-	if b == nil {
+	err := db.sqx.Get(&b, `SELECT original FROM kv WHERE key=? LIMIT 1;`, key)
+	if errors.Is(err, sql.ErrNoRows) || b == nil {
 		return nil, NotFoundErr
 	}
 	return UnmarshalBinary(b)

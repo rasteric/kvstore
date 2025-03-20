@@ -18,11 +18,11 @@ type testStruct struct {
 
 func TestKVStore(t *testing.T) {
 	db := New()
-	dname, err := os.MkdirTemp("", "sampledir")
+	path, err := os.MkdirTemp("", "kvstore-test")
 	if err != nil {
 		t.Errorf(`failed to create tempdir: %v`, err)
 	}
-	err = db.Open(dname, "testdb")
+	err = db.Open(path)
 	if err != nil {
 		t.Errorf(`failed to open database: %v`, err)
 	}
@@ -31,7 +31,7 @@ func TestKVStore(t *testing.T) {
 		if err != nil {
 			t.Errorf(`failed to close database: %v`, err)
 		}
-		os.RemoveAll(dname)
+		os.RemoveAll(path)
 	}()
 	var x int = 10
 	err = db.Set("hello", x)
