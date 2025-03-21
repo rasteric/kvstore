@@ -1,9 +1,7 @@
-<p align="center">
 ![KVStore](logo.png)
 
 [![GoDoc](https://godoc.org/github.com/rasteric/kvstore/go?status.svg)](https://godoc.org/github.com/rasteric/kvstore)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rasteric/kvstore)](https://goreportcard.com/report/github.com/rasteric/kvstore)
-</p>
 
 __KVStore is an Sqlite3-backed embedded local key value store for Go, focusing on simplicity and data integrity. It currently hardcodes the CGO-free Sqlite3 library `github.com/ncruces/go-sqlite3` in WAL mode as backend.__
 
