@@ -171,7 +171,11 @@ func (db *KVStore) SetMany(pairs map[string]any) error {
 	}
 	defer tx.Rollback()
 	for k, v := range pairs {
-		_, err = tx.Exec(`INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=?;`, k, v, v)
+		b, err := MarshalBinary(v)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(`INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=?;`, k, b, b)
 		if err != nil {
 			return err
 		}
@@ -216,18 +220,28 @@ func (db *KVStore) GetAll(limit int) (map[string]any, error) {
 	result := make(map[string]any)
 	for rows.Next() {
 		var key string
-		var value, original any
-		err := rows.Scan(&key, &value, &original)
+		var value, original []byte
+		err = rows.Scan(&key, &value, &original)
 		if err != nil {
 			return result, err
 		}
 		if value != nil {
-			result[key] = value
+			v, err2 := UnmarshalBinary(value)
+			if err != nil {
+				err = errors.Join(err, err2)
+			} else {
+				result[key] = v
+			}
 		} else if original != nil {
-			result[key] = original
+			v, err2 := UnmarshalBinary(original)
+			if err != nil {
+				err = errors.Join(err, err2)
+			} else {
+				result[key] = v
+			}
 		}
 	}
-	return result, nil
+	return result, err
 }
 
 // getDefault obtains the default for the given key, ErrNotFound if there is none.
